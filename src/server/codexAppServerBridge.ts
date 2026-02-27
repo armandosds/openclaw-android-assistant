@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, mkdir } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { homedir } from 'node:os'
 import { tmpdir } from 'node:os'
@@ -742,6 +742,47 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
           setJson(res, 200, { data: results, total: allSkills.length })
         } catch (error) {
           setJson(res, 502, { error: getErrorMessage(error, 'Failed to fetch skills hub') })
+        }
+        return
+      }
+
+      if (req.method === 'POST' && url.pathname === '/codex-api/skills-hub/install') {
+        try {
+          const payload = asRecord(await readJsonBody(req))
+          const owner = typeof payload?.owner === 'string' ? payload.owner : ''
+          const name = typeof payload?.name === 'string' ? payload.name : ''
+          if (!owner || !name) {
+            setJson(res, 400, { error: 'Missing owner or name' })
+            return
+          }
+          const skillDir = join(homedir(), '.codex', 'skills', name)
+          await mkdir(skillDir, { recursive: true })
+          const skillMdUrl = `https://raw.githubusercontent.com/openclaw/skills/main/skills/${owner}/${name}/SKILL.md`
+          const resp = await fetch(skillMdUrl)
+          if (!resp.ok) throw new Error(`Failed to fetch SKILL.md: ${resp.status}`)
+          const content = await resp.text()
+          await writeFile(join(skillDir, 'SKILL.md'), content, 'utf-8')
+          setJson(res, 200, { ok: true, path: skillDir })
+        } catch (error) {
+          setJson(res, 502, { error: getErrorMessage(error, 'Failed to install skill') })
+        }
+        return
+      }
+
+      if (req.method === 'POST' && url.pathname === '/codex-api/skills-hub/uninstall') {
+        try {
+          const payload = asRecord(await readJsonBody(req))
+          const name = typeof payload?.name === 'string' ? payload.name : ''
+          const path = typeof payload?.path === 'string' ? payload.path : ''
+          const target = path || (name ? join(homedir(), '.codex', 'skills', name) : '')
+          if (!target) {
+            setJson(res, 400, { error: 'Missing name or path' })
+            return
+          }
+          await rm(target, { recursive: true, force: true })
+          setJson(res, 200, { ok: true, deletedPath: target })
+        } catch (error) {
+          setJson(res, 502, { error: getErrorMessage(error, 'Failed to uninstall skill') })
         }
         return
       }
