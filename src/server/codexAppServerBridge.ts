@@ -85,79 +85,160 @@ type SkillHubEntry = {
   name: string
   owner: string
   description: string
-  stars: number
-  updatedAt: string
+  displayName: string
+  publishedAt: number
+  avatarUrl: string
   url: string
   installed: boolean
   path?: string
   enabled?: boolean
 }
 
-type SkillsHubCache = {
-  skills: SkillHubEntry[]
+type SkillsTreeEntry = {
+  name: string
+  owner: string
+  url: string
+}
+
+type SkillsTreeCache = {
+  entries: SkillsTreeEntry[]
   fetchedAt: number
 }
 
-const SKILLS_HUB_CACHE_TTL_MS = 5 * 60 * 1000
-let skillsHubCache: SkillsHubCache | null = null
+type MetaJson = {
+  displayName?: string
+  owner?: string
+  slug?: string
+  latest?: { publishedAt?: number }
+}
 
-async function fetchOpenClawSkillsTree(): Promise<SkillHubEntry[]> {
-  if (skillsHubCache && Date.now() - skillsHubCache.fetchedAt < SKILLS_HUB_CACHE_TTL_MS) {
-    return skillsHubCache.skills
+const TREE_CACHE_TTL_MS = 5 * 60 * 1000
+let skillsTreeCache: SkillsTreeCache | null = null
+const metaCache = new Map<string, { description: string; displayName: string; publishedAt: number }>()
+
+async function getGhToken(): Promise<string | null> {
+  try {
+    const proc = spawn('gh', ['auth', 'token'], { stdio: ['ignore', 'pipe', 'ignore'] })
+    let out = ''
+    proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
+    return new Promise((resolve) => {
+      proc.on('close', (code) => resolve(code === 0 ? out.trim() : null))
+      proc.on('error', () => resolve(null))
+    })
+  } catch { return null }
+}
+
+async function ghFetch(url: string): Promise<Response> {
+  const token = await getGhToken()
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'codex-web-local',
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
+  return fetch(url, { headers })
+}
+
+async function fetchSkillsTree(): Promise<SkillsTreeEntry[]> {
+  if (skillsTreeCache && Date.now() - skillsTreeCache.fetchedAt < TREE_CACHE_TTL_MS) {
+    return skillsTreeCache.entries
   }
 
-  const treeUrl = 'https://api.github.com/repos/openclaw/skills/git/trees/main?recursive=1'
-  const resp = await fetch(treeUrl, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'codex-web-local' },
-  })
+  const resp = await ghFetch('https://api.github.com/repos/openclaw/skills/git/trees/main?recursive=1')
   if (!resp.ok) throw new Error(`GitHub tree API returned ${resp.status}`)
   const data = (await resp.json()) as { tree?: Array<{ path: string; type: string }> }
-  const tree = data.tree ?? []
 
   const metaPattern = /^skills\/([^/]+)\/([^/]+)\/_meta\.json$/
   const seen = new Set<string>()
-  const skills: SkillHubEntry[] = []
+  const entries: SkillsTreeEntry[] = []
 
-  for (const node of tree) {
+  for (const node of data.tree ?? []) {
     const match = metaPattern.exec(node.path)
     if (!match) continue
-    const owner = match[1]
-    const skillName = match[2]
+    const [, owner, skillName] = match
     const key = `${owner}/${skillName}`
     if (seen.has(key)) continue
     seen.add(key)
-    skills.push({
+    entries.push({
       name: skillName,
       owner,
-      description: '',
-      stars: 0,
-      updatedAt: '',
       url: `https://github.com/openclaw/skills/tree/main/skills/${owner}/${skillName}`,
-      installed: false,
     })
   }
 
-  skillsHubCache = { skills, fetchedAt: Date.now() }
-  return skills
+  skillsTreeCache = { entries, fetchedAt: Date.now() }
+  return entries
+}
+
+async function fetchMetaBatch(entries: SkillsTreeEntry[]): Promise<void> {
+  const toFetch = entries.filter((e) => !metaCache.has(`${e.owner}/${e.name}`))
+  if (toFetch.length === 0) return
+
+  const batch = toFetch.slice(0, 50)
+  const results = await Promise.allSettled(
+    batch.map(async (e) => {
+      const rawUrl = `https://raw.githubusercontent.com/openclaw/skills/main/skills/${e.owner}/${e.name}/_meta.json`
+      const resp = await fetch(rawUrl)
+      if (!resp.ok) return
+      const meta = (await resp.json()) as MetaJson
+      metaCache.set(`${e.owner}/${e.name}`, {
+        displayName: typeof meta.displayName === 'string' ? meta.displayName : '',
+        description: typeof meta.displayName === 'string' ? meta.displayName : '',
+        publishedAt: meta.latest?.publishedAt ?? 0,
+      })
+    }),
+  )
+  void results
+}
+
+function buildHubEntry(e: SkillsTreeEntry): SkillHubEntry {
+  const cached = metaCache.get(`${e.owner}/${e.name}`)
+  return {
+    name: e.name,
+    owner: e.owner,
+    description: cached?.description ?? '',
+    displayName: cached?.displayName ?? '',
+    publishedAt: cached?.publishedAt ?? 0,
+    avatarUrl: `https://github.com/${e.owner}.png?size=40`,
+    url: e.url,
+    installed: false,
+  }
 }
 
 type InstalledSkillInfo = { name: string; path: string; enabled: boolean }
 
-function searchSkillsHub(
-  allSkills: SkillHubEntry[],
+async function searchSkillsHub(
+  allEntries: SkillsTreeEntry[],
   query: string,
   limit: number,
+  sort: string,
   installedMap: Map<string, InstalledSkillInfo>,
-): SkillHubEntry[] {
+): Promise<SkillHubEntry[]> {
   const q = query.toLowerCase().trim()
-  const filtered = q
-    ? allSkills.filter((s) => s.name.toLowerCase().includes(q) || s.owner.toLowerCase().includes(q))
-    : allSkills
-  return filtered.slice(0, limit).map((s) => {
+  let filtered = q
+    ? allEntries.filter((s) => s.name.toLowerCase().includes(q) || s.owner.toLowerCase().includes(q))
+    : allEntries
+
+  const page = filtered.slice(0, Math.min(limit * 2, 200))
+  await fetchMetaBatch(page)
+
+  let results = page.map(buildHubEntry)
+
+  if (sort === 'date') {
+    results.sort((a, b) => b.publishedAt - a.publishedAt)
+  } else if (q) {
+    results.sort((a, b) => {
+      const aExact = a.name.toLowerCase() === q ? 1 : 0
+      const bExact = b.name.toLowerCase() === q ? 1 : 0
+      if (aExact !== bExact) return bExact - aExact
+      return b.publishedAt - a.publishedAt
+    })
+  }
+
+  return results.slice(0, limit).map((s) => {
     const local = installedMap.get(s.name)
     return local
       ? { ...s, installed: true, path: local.path, enabled: local.enabled }
-      : { ...s, installed: false }
+      : s
   })
 }
 
@@ -730,7 +811,8 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
         try {
           const q = url.searchParams.get('q') || ''
           const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 1), 200)
-          const allSkills = await fetchOpenClawSkillsTree()
+          const sort = url.searchParams.get('sort') || 'date'
+          const allEntries = await fetchSkillsTree()
 
           const installedMap = new Map<string, InstalledSkillInfo>()
           try {
@@ -743,13 +825,32 @@ export function createCodexBridgeMiddleware(): CodexBridgeMiddleware {
               }
             }
           } catch {
-            // local skills unavailable, all marked as not installed
+            // local skills unavailable
           }
 
-          const results = searchSkillsHub(allSkills, q, limit, installedMap)
-          setJson(res, 200, { data: results, total: allSkills.length })
+          const results = await searchSkillsHub(allEntries, q, limit, sort, installedMap)
+          setJson(res, 200, { data: results, total: allEntries.length })
         } catch (error) {
           setJson(res, 502, { error: getErrorMessage(error, 'Failed to fetch skills hub') })
+        }
+        return
+      }
+
+      if (req.method === 'GET' && url.pathname === '/codex-api/skills-hub/readme') {
+        try {
+          const owner = url.searchParams.get('owner') || ''
+          const name = url.searchParams.get('name') || ''
+          if (!owner || !name) {
+            setJson(res, 400, { error: 'Missing owner or name' })
+            return
+          }
+          const rawUrl = `https://raw.githubusercontent.com/openclaw/skills/main/skills/${owner}/${name}/SKILL.md`
+          const resp = await fetch(rawUrl)
+          if (!resp.ok) throw new Error(`Failed to fetch SKILL.md: ${resp.status}`)
+          const content = await resp.text()
+          setJson(res, 200, { content })
+        } catch (error) {
+          setJson(res, 502, { error: getErrorMessage(error, 'Failed to fetch SKILL.md') })
         }
         return
       }
