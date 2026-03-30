@@ -45,6 +45,9 @@ jobs:
               | xargs -I {} git rm -f {} 2>/dev/null || true
           fi
 
+          # Remove upstream docs that conflict with our GitHub Pages site
+          git rm -rf docs/ 2>/dev/null || true
+
           # Resolve conflicts
           if git ls-files -u | grep -q "^"; then
             echo "Conflicts detected. Resolving..."
