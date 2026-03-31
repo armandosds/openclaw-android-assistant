@@ -91,6 +91,7 @@ Docs: https://docs.openclaw.ai
 - Agents/Kimi: preserve already-valid Anthropic-compatible tool call argument objects while still clearing cached repairs when later trailing junk exceeds the repair allowance. (#54491) Thanks @yuanaichi.
 - Docker/setup: force BuildKit for local image builds (including sandbox image builds) so `./docker-setup.sh` no longer fails on `RUN --mount=...` when hosts default to Docker's legacy builder. (#56681) Thanks @zhanghui-china.
 - Control UI/agents: auto-load agent workspace files on initial Files panel open, and populate overview model/workspace/fallbacks from effective runtime agent metadata so defaulted models no longer show as `Not set`. (#56637) Thanks @dxsx84.
+- Exec/env: block proxy, TLS, and Docker endpoint env overrides in host execution so request-scoped commands cannot silently reroute outbound traffic or trust attacker-supplied certificate settings. Thanks @AntAISecurityLab.
 - Control UI/slash commands: make `/steer` and `/redirect` work from the chat command palette with visible pending state for active-run `/steer`, correct redirected-run tracking, and a single canonical `/steer` entry in the command menu. (#54625) Thanks @fuller-stack-dev.
 - Exec/approvals: keep `awk` and `sed` family binaries out of the low-risk `safeBins` fast path, and stop doctor profile scaffolding from treating them like ordinary custom filters. Thanks @vincentkoc.
 - Exec/runtime: default implicit exec to `host=auto`, resolve that target to sandbox only when a sandbox runtime exists, keep explicit `host=sandbox` fail-closed without sandbox, and show `/exec` effective host state in runtime status/docs.
@@ -129,6 +130,7 @@ Docs: https://docs.openclaw.ai
 - Gateway/device tokens: disconnect active device sessions after token rotation so newly rotated credentials revoke existing live connections immediately instead of waiting for those sockets to close naturally. Thanks @zsxsoft and @vincentkoc.
 - Gateway/OpenAI HTTP: restore default operator scopes for bearer-authenticated requests that omit `x-openclaw-scopes`, so headless `/v1/chat/completions` and session-history callers work again after the recent method-scope hardening. (#57596) Thanks @openperf.
 - Gateway/attachments: offload large inbound images without leaking `media://` markers into text-only runs, preserve mixed attachment order for model input/transcripts, and fail closed when model image capability cannot be resolved. (#55513) Thanks @Syysean.
+- Discord/voice: enforce the same guild channel and member allowlist checks on spoken voice ingress before transcription, so joined voice channels no longer accept speech from users outside the configured Discord access policy. Thanks @cyjhhh and @vincentkoc.
 - Agents/subagents: fix interim subagent runtime display so `/subagents list` and `/subagents info` stop inflating short runtimes and show second-level durations correctly. (#57739) Thanks @samzong.
 - Diffs/config: preserve schema-shaped plugin config parsing from `diffsPluginConfigSchema.safeParse()`, so direct callers keep `defaults` and `security` sections instead of receiving flattened tool defaults. (#57904) Thanks @gumadeiras.
 - Feishu/groups: keep quoted replies and topic bootstrap context aligned with group sender allowlists so only allowlisted thread messages seed agent context. Thanks @AntAISecurityLab and @vincentkoc.
@@ -158,6 +160,7 @@ Docs: https://docs.openclaw.ai
 - Exec approvals: unwrap `caffeinate` and `sandbox-exec` before persisting allow-always trust so later shell payload changes still require a fresh approval. Thanks @tdjackey and @vincentkoc.
 - Matrix/DM threads: keep strict unnamed fresh-invite rooms promotable even when Matrix omits the optional direct hint, preserve repair-failed local DM promotions while still revalidating later room metadata, and keep both bound and thread-isolated Matrix sessions reporting the correct route policy. (#58099) Thanks @gumadeiras.
 - ClawFlow: add a small flow runtime substrate for authoring layers with persisted wait targets and output bags, plus bundled skills/Lobster examples and richer `flows show` / `doctor` recovery hints for multi-task flow state. (#58336) Thanks @mbelinky.
+- Sessions/Feishu: preserve conversation ids that legitimately embed `:topic:` in shared session helper parsing, while keeping Telegram topic session parsing intact. (#58100) Thanks @gumadeiras.
 
 ## 2026.3.28
 
