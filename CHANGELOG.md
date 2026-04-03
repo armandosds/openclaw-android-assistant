@@ -16,6 +16,7 @@ Docs: https://docs.openclaw.ai
 - Tests/runtime: trim local unit-test import/runtime fan-out across browser, WhatsApp, cron, task, and reply flows so owner suites start faster with lower shared-worker overhead while preserving the same focused behavior coverage. (#60249) Thanks @shakkernerd.
 - Tests/secrets runtime: restore split secrets suite cache and env isolation cleanup so broader runs do not leak stale plugin or provider snapshot state. (#60395) Thanks @shakkernerd.
 - Providers/Ollama: add bundled Ollama Web Search provider for key-free web_search via your configured Ollama host and `ollama signin`. (#59318) Thanks @BruceMacD.
+- Plugins/install: add `openclaw plugins install --force` to overwrite existing plugin and hook-pack install targets without using the dangerous-code override flag. (#60544) Thanks @gumadeiras.
 
 ### Fixes
 
@@ -93,6 +94,8 @@ Docs: https://docs.openclaw.ai
 - Agents/workspace: respect `agents.defaults.workspace` for non-default agents by resolving them under the configured base path instead of falling back to `workspace-<id>`. (#59858) Thanks @joelnishanth.
 - Config/All Settings: keep the raw config view intact when sensitive fields are blank instead of corrupting or dropping the snapshot during redaction. (#28214) thanks @solodmd.
 - Plugins/runtime: honor explicit capability allowlists during fallback speech, media-understanding, and image-generation provider loading so bundled capability plugins do not bypass restrictive `plugins.allow` config. (#52262) Thanks @PerfectPan.
+- Hooks/tool policy: block tool calls when a `before_tool_call` hook crashes so hook failures fail closed instead of silently allowing execution. (#59822) Thanks @pgondhi987.
+- Matrix/media: surface a dedicated `[matrix <kind> attachment too large]` marker for oversized inbound media instead of the generic unavailable marker, and classify size-limit failures with a typed Matrix error. (#60289) Thanks @efe-arv.
 
 ## 2026.4.2
 
@@ -122,6 +125,9 @@ Docs: https://docs.openclaw.ai
 
 ### Fixes
 
+- Sandbox/security: block credential-path binds even when sandbox home paths resolve through canonical aliases, so agent containers cannot mount user secret stores through alternate home-directory paths. (#59157) Thanks @eleqtrizit.
+
+## 2026.4.1-beta.1
 - Providers/transport policy: centralize request auth, proxy, TLS, and header shaping across shared HTTP, stream, and websocket paths, block insecure TLS/runtime transport overrides, and keep proxy-hop TLS separate from target mTLS settings. (#59682) Thanks @vincentkoc.
 - Providers/OpenRouter: gate documented OpenRouter attribution to native OpenRouter endpoints or the default route so custom proxy base URLs do not inherit OpenRouter request headers.
 - Providers/Copilot: classify native GitHub Copilot API hosts in the shared provider endpoint resolver and harden token-derived proxy endpoint parsing so Copilot base URL routing stays centralized and fails closed on malformed hints. (#59644) Thanks @vincentkoc.
