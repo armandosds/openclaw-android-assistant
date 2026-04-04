@@ -2,11 +2,8 @@ import { bundledPluginRoot } from "./scripts/lib/bundled-plugin-paths.mjs";
 
 export const messagingExtensionIds = [
   "bluebubbles",
-  "feishu",
   "googlechat",
-  "irc",
   "mattermost",
-  "msteams",
   "nextcloud-talk",
   "nostr",
   "qqbot",
@@ -14,8 +11,6 @@ export const messagingExtensionIds = [
   "tlon",
   "twitch",
   "voice-call",
-  "zalo",
-  "zalouser",
 ];
 
 export const messagingExtensionTestRoots = messagingExtensionIds.map((id) => bundledPluginRoot(id));
