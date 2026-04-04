@@ -23,16 +23,21 @@ Docs: https://docs.openclaw.ai
 - Plugins/install: add `openclaw plugins install --force` to overwrite existing plugin and hook-pack install targets without using the dangerous-code override flag. (#60544) Thanks @gumadeiras.
 - Providers/Anthropic: remove setup-token from new onboarding and auth-command setup paths, keep existing configured legacy token profiles runnable, and steer new Anthropic setup to Claude CLI or API keys.
 - Providers/OpenAI Codex: add forward-compat `openai-codex/gpt-5.4-mini` synthesis across provider runtime, model catalog, and model listing so Codex mini works before bundled Pi catalog updates land.
+- Tools/web_search: add a bundled MiniMax Search provider backed by the Coding Plan search API, with region reuse from `MINIMAX_API_HOST` and plugin-owned credential config. (#54648) Thanks @fengmk2.
 - Channels/context visibility: add configurable `contextVisibility` per channel (`all`, `allowlist`, `allowlist_quote`) so quoted, threaded, and fetched history context can be filtered by sender allowlists instead of always passing through as received.
 - Providers/request overrides: add shared model and media request transport overrides across OpenAI-, Anthropic-, Google-, and compatible provider paths, including headers, auth, proxy, and TLS controls. (#60200)
 - Matrix/exec approvals: add Matrix-native exec approval prompts with account-scoped approvers, channel-or-DM delivery, and room-thread aware resolution handling. (#58635) Thanks @gumadeiras.
 - Agents/Claude CLI: expose OpenClaw tools to background Claude CLI runs through a loopback MCP bridge that reuses gateway tool policy, honors session/account/channel scoping, and only advertises the bridge when the local runtime is actually live. (#35676) Thanks @mylukin.
+- Agents/Claude CLI: switch bundled Claude CLI runs to stdin + `stream-json` partial-message streaming so prompts stop riding argv, long replies show live progress, and final session/usage metadata still land cleanly.
 - Prompt caching: keep prompt prefixes more reusable across transport fallback, deterministic MCP tool ordering, compaction, and embedded image history so follow-up turns hit cache more reliably. (#58036, #58037, #58038, #59054, #60603, #60691) Thanks @bcherny.
 - Agents/cache: diagnostics: add prompt-cache break diagnostics, trace live cache scenarios through embedded runner paths, and show cache reuse explicitly in `openclaw status --verbose`. Thanks @vincentkoc.
 - Agents/cache: stabilize cache-relevant system prompt fingerprints by normalizing equivalent structured prompt whitespace, line endings, hook-added system context, and runtime capability ordering so semantically unchanged prompts reuse KV/cache more reliably. Thanks @vincentkoc.
 
 ### Fixes
 
+- Synology Chat/security: route webhook token comparison through the shared constant-time secret helper for consistency with other bundled plugins.
+- Models/MiniMax: honor `MINIMAX_API_HOST` for implicit bundled MiniMax provider catalogs so China-hosted API-key setups pick `api.minimaxi.com/anthropic` without manual provider config. (#34524) Thanks @caiqinghua.
+- Usage/MiniMax: invert remaining-style `usage_percent` fields when MiniMax reports only remaining percentage data, so usage bars stop showing nearly-full remaining quota as nearly-exhausted usage. (#60254) Thanks @jwchmodx.
 - MiniMax: advertise image input on bundled `MiniMax-M2.7` and `MiniMax-M2.7-highspeed` model definitions so image-capable flows can route through the M2.7 family correctly. (#54843) Thanks @MerlinMiao88888888.
 - Agents/exec approvals: let `exec-approvals.json` agent security override stricter gateway tool defaults so approved subagents can use `security: "full"` without falling back to allowlist enforcement again. (#60310) Thanks @lml2468.
 - Tasks/maintenance: mark stale cron runs and CLI tasks backed only by long-lived chat sessions as lost again so task cleanup does not keep dead work alive indefinitely. (#60310) Thanks @lml2468.
@@ -41,8 +46,10 @@ Docs: https://docs.openclaw.ai
 - Providers/OpenAI Codex: split native `contextWindow` from runtime `contextTokens`, keep the default effective cap at `272000`, and expose a per-model `contextTokens` override on `models.providers.*.models[]`.
 - Providers/compat: stop forcing OpenAI-only defaults on proxy and custom OpenAI-compatible routes, preserve native vendor-specific reasoning/tool/streaming behavior across Anthropic-compatible, Moonshot, Mistral, ModelStudio, OpenRouter, xAI, and Z.ai endpoints, and route GitHub Copilot Claude models through Anthropic Messages instead of OpenAI Responses.
 - Providers/Model Studio: preserve native streaming usage reporting for DashScope-compatible endpoints even when they are configured under a generic provider key, so streamed token totals stop sticking at zero. (#52395) Thanks @IVY-AI-gif.
+- Providers/OpenAI-compatible WS: compute fallback token totals from normalized usage when providers omit or zero `total_tokens`, so DashScope-compatible sessions stop storing zero totals after alias normalization. (#54940) Thanks @lyfuci.
 - Status/usage: let `/status` and `session_status` fall back to transcript token totals when the session meta store stayed at zero, so LM Studio, Ollama, DashScope, and similar OpenAI-compatible providers stop showing `Context: 0/...`. (#55041) Thanks @jjjojoj.
 - Providers/Z.AI: preserve explicitly registered `glm-5-*` variants like `glm-5-turbo` instead of intercepting them with the generic GLM-5 forward-compat shim. (#48185) Thanks @haoyu-haoyu.
+- Live model switching: only treat explicit user-driven model changes as pending live switches, so fallback rotation, heartbeat overrides, and compaction no longer trip `LiveSessionModelSwitchError` before making an API call. (#60266) Thanks @kiranvk-2011.
 - Plugins/OpenAI: enable `gpt-image-1` reference-image edits through `/images/edits` multipart uploads, and stop inferring unsupported resolution overrides when no explicit `size` or `resolution` is provided.
 - Gateway/startup: default `gateway.mode` to `local` when unset, detect PID recycling in gateway lock files on Windows and macOS, and show startup progress so healthy restarts stop getting blocked by stale locks. (#54801, #60085, #59843)
 - Mobile pairing/Android: tighten secure endpoint handling so Tailscale and public remote setup reject cleartext endpoints, private LAN pairing still works, merged-role approvals mint both node and operator device tokens, and bootstrap tokens survive node auto-pair until operator approval finishes. (#60128, #60208, #60221)
@@ -52,6 +59,8 @@ Docs: https://docs.openclaw.ai
 - Matrix: recover more reliably when secret storage or recovery keys are missing by recreating secret storage during repair and backup reset, hold crypto snapshot locks during persistence, and surface explicit too-large attachment markers. (#59846, #59851, #60599, #60289)
 - ACP/agents: inherit the target agent workspace for cross-agent ACP spawns and fall back safely when the inherited workspace no longer exists. (#58438) Thanks @zssggle-rgb.
 - ACPX/Windows: preserve backslashes and absolute `.exe` paths in Claude CLI parsing, and fail fast on wrapper-script targets with guidance to use `cmd.exe /c`, `powershell.exe -File`, or `node <script>`. (#60689)
+- Providers/OpenAI Codex: treat Codex CLI auth as the canonical source, stop persisting copied Codex OAuth secrets into `auth-profiles.json`, refresh expired Codex-managed tokens back into Codex storage, and keep OpenAI WebSocket fallback/cache paths stable across transport changes.
+- Plugins/gateway: keep reserved admin RPC namespaces (`config.*`, `exec.approvals.*`, `wizard.*`, `update.*`) admin-only even for plugin-defined methods, and warn when a plugin tries to register a narrower scope.
 - Gateway/Windows scheduled tasks: preserve Task Scheduler settings on reinstall, fail loudly when `/Run` does not start, and report fast failed restarts accurately instead of pretending they timed out after 60 seconds. (#59335) Thanks @tmimmanuel.
 - Discord: keep REST, webhook, and monitor traffic on the configured proxy, preserve component-only media sends, honor `@everyone` and `@here` mention gates, keep ACK reactions on the active account, and split voice connect/playback timeouts so auto-join is more reliable. (#57465, #60361, #60345)
 - WhatsApp: restore `channels.whatsapp.blockStreaming` and reset watchdog timeouts after reconnect so quiet chats stop falling into reconnect loops. (#60007, #60069)
@@ -74,8 +83,13 @@ Docs: https://docs.openclaw.ai
 - Agents/exec approvals: let `exec-approvals.json` agent security override stricter gateway tool defaults so approved subagents can use `security: "full"` without falling back to allowlist enforcement again. (#60310) Thanks @lml2468.
 - Tasks/maintenance: reconcile stale cron and chat-backed CLI task rows against live cron-job and agent-run ownership instead of treating any persisted session key as proof that the task is still running. (#60310) Thanks @lml2468.
 - Providers/GitHub Copilot: send IDE identity headers on runtime model requests and GitHub token exchange so IDE-authenticated Copilot runs stop failing with missing `Editor-Version`. (#60641) Thanks @VACInc and @vincentkoc.
+- Model picker/providers: treat bundled BytePlus and Volcengine plan aliases as their native providers during setup, and expose their bundled standard/coding catalogs before auth so setup can suggest the right models. (#58819) Thanks @Luckymingxuan.
 - Prompt caching: route Codex Responses and Anthropic Vertex through boundary-aware cache shaping, and report the actual outbound system prompt in cache traces so cache reuse and misses line up with what providers really receive. Thanks @vincentkoc.
+- Agents/Kimi tool-call repair: preserve tool arguments that were already present on streamed tool calls when later malformed deltas fail reevaluation, while still dropping stale repair-only state before `toolcall_end`.
 - MiniMax/pricing: keep bundled MiniMax highspeed pricing distinct in provider catalogs and preserve the lower M2.5 cache-read pricing when onboarding older MiniMax models. (#54214) Thanks @octo-patch.
+- Agents/cache: preserve the full 3-turn prompt-cache image window across tool loops, keep colliding bundled MCP tool definitions deterministic, and reapply Anthropic Vertex cache shaping after payload hook replacements so KV/cache reuse stays stable. Thanks @vincentkoc.
+- Device pairing: reject rotating device tokens into roles that were never approved during pairing, and keep reconnect role checks bounded to the paired device's approved role set. (#60462) Thanks @eleqtrizit.
+- Mobile pairing/security: fail closed for internal `/pair` setup-code issuance, cleanup, and approval paths when gateway pairing scopes are missing, and keep approval-time requested-scope enforcement on the internal command path. (#55996) Thanks @coygeek.
 
 ## 2026.4.2
 
@@ -139,6 +153,8 @@ Docs: https://docs.openclaw.ai
 - Image generation/providers: stop inferring private-network access from configured OpenAI, MiniMax, and fal image base URLs, and cap shared HTTP error-body reads so hostile or misconfigured endpoints fail closed without relaxing SSRF policy or buffering unbounded error payloads. Thanks @vincentkoc.
 - Browser/host inspection: keep static Chrome inspection helpers out of the activated browser runtime so `openclaw doctor browser` and related checks do not eagerly load the bundled browser plugin. (#59471) Thanks @vincentkoc.
 - Browser/CDP: normalize trailing-dot localhost absolute-form hosts before loopback checks so remote CDP websocket URLs like `ws://localhost.:...` rewrite back to the configured remote host. (#59236) Thanks @mappel-nv.
+- Browser/attach-only profiles: disconnect cached Playwright CDP sessions when stopping attach-only or remote CDP profiles, while still reporting never-started local managed profiles as not stopped. (#60097) Thanks @pedh.
+- Browser/task cleanup: close tracked browser tabs and best-effort browser processes when cron-isolated agents and subagents finish, so background browser runs stop leaking orphaned sessions. (#60146) Thanks @BrianWang1990.
 - Agents/output sanitization: strip namespaced `antml:thinking` blocks from user-visible text so Anthropic-style internal monologue tags do not leak into replies. (#59550) Thanks @obviyus.
 - Kimi Coding/tools: normalize Anthropic tool payloads into the OpenAI-compatible function shape Kimi Coding expects so tool calls stop losing required arguments. (#59440) Thanks @obviyus.
 - Image tool/paths: resolve relative local media paths against the agent `workspaceDir` instead of `process.cwd()` so inputs like `inbox/receipt.png` pass the local-path allowlist reliably. (#57222) Thanks Priyansh Gupta.
@@ -165,6 +181,12 @@ Docs: https://docs.openclaw.ai
 - TUI/chat: keep pending local sends visible and reconciled across history reloads, make busy/error recovery clearer through fallback and terminal-error paths, and reclaim transcript width for long links and paths. (#59800) Thanks @vincentkoc.
 - Exec approvals/channels: decouple initiating-surface approval availability from native delivery enablement so Telegram, Slack, and Discord still expose approvals when approvers exist and native target routing is configured separately. (#59776) Thanks @joelnishanth.
 - Agents/logging: keep orphaned-user transcript repair warnings focused on interactive runs, and downgrade background-trigger repairs (`heartbeat`, `cron`, `memory`, `overflow`) to debug logs to reduce false-alarm gateway noise.
+- Gateway/node pairing: require `operator.pairing` for node approvals end-to-end, while still requiring `operator.write` or `operator.admin` when the pending node commands need those higher scopes. (#60461) Thanks @eleqtrizit.
+- Providers/OpenRouter: gate Anthropic prompt-cache `cache_control` markers to native/default OpenRouter routes and preserve them for native OpenRouter hosts behind custom provider ids. Thanks @vincentkoc.
+- Browser/CDP: validate both initial and discovered CDP websocket endpoints before connect so strict SSRF policy blocks cross-host pivots and direct websocket targets. (#60469) Thanks @eleqtrizit.
+- Browser/profiles: reject remote browser profile `cdpUrl` values that violate strict SSRF policy before saving config, with clearer validation errors for blocked endpoints. (#60477) Thanks @eleqtrizit.
+- Browser/screenshots: stop sending `fromSurface: false` on CDP screenshots so managed Chrome 146+ browsers can capture images again. (#60682) Thanks @mvanhorn.
+- Mattermost/slash commands: harden native slash-command callback token validation to use constant-time secret comparison, matching the existing interaction-token path.
 
 ## 2026.4.1
 
