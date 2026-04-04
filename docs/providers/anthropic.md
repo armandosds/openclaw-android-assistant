@@ -10,7 +10,7 @@ title: "Anthropic"
 
 Anthropic builds the **Claude** model family and provides access via an API.
 In OpenClaw, new Anthropic setup should use an API key or the local Claude CLI
-backend. Existing legacy Anthropic token profiles are still honored at runtime
+backend. Existing Anthropic OAuth/token profiles are still honored at runtime
 if they are already configured.
 
 <Warning>
@@ -209,6 +209,10 @@ with model refs like:
 - `claude-cli/claude-sonnet-4-6`
 - `claude-cli/claude-opus-4-6`
 
+Shorter aliases like `claude-cli/sonnet`, `claude-cli/opus`, or
+`claude-cli/opus-4.6` still normalize through the bundled backend, but docs
+and config examples use the canonical `claude-cli/claude-*` refs.
+
 How it works:
 
 1. OpenClaw launches `claude -p --output-format stream-json --include-partial-messages ...`
@@ -273,7 +277,7 @@ If the `claude` binary is not on the gateway host PATH:
 
 ### Migrate from Anthropic auth to Claude CLI
 
-If you currently use `anthropic/...` with a legacy token profile or API key and want to
+If you currently use `anthropic/...` with an Anthropic OAuth/token profile or API key and want to
 switch the same gateway host to Claude CLI, OpenClaw supports that as a normal
 provider-auth migration path.
 
@@ -300,10 +304,11 @@ Claude CLI** first and **Anthropic API key** second.
 What this does:
 
 - verifies Claude CLI is already signed in on the gateway host
-- switches the default model to `claude-cli/...`
+- switches the default model to a canonical `claude-cli/claude-*` ref
 - rewrites Anthropic default-model fallbacks like `anthropic/claude-opus-4-6`
   to `claude-cli/claude-opus-4-6`
-- adds matching `claude-cli/...` entries to `agents.defaults.models`
+- adds matching canonical `claude-cli/claude-*` entries to
+  `agents.defaults.models`
 
 Quick verification:
 
@@ -311,7 +316,8 @@ Quick verification:
 openclaw models status
 ```
 
-You should see the resolved primary model under `claude-cli/...`.
+You should see the resolved primary model under a canonical
+`claude-cli/claude-*` ref.
 
 What it does **not** do:
 
@@ -337,7 +343,7 @@ More details: [/gateway/cli-backends](/gateway/cli-backends)
   OpenClaw usage with Claude CLI or Anthropic OAuth/subscription token auth
   requires **Extra Usage** (pay-as-you-go billed separately from the
   subscription).
-- Existing legacy Anthropic token profiles are still honored at runtime, but
+- Existing Anthropic OAuth/token profiles are still honored at runtime, but
   OpenClaw no longer offers setup-token onboarding or auth commands for new
   setups.
 - Auth details + reuse rules are in [/concepts/oauth](/concepts/oauth).
