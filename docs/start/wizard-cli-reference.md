@@ -144,8 +144,10 @@ What you set:
   </Accordion>
   <Accordion title="OpenAI Code subscription (Codex CLI reuse)">
     If `~/.codex/auth.json` exists, the wizard can reuse it.
-    Reused Codex CLI credentials stay managed by Codex CLI; OpenClaw re-reads
-    that source on expiry instead of rotating the copied refresh token itself.
+    Reused Codex CLI credentials stay managed by Codex CLI; on expiry OpenClaw
+    re-reads that source first and, when the provider can refresh it, writes
+    the refreshed credential back to Codex storage instead of taking ownership
+    itself.
   </Accordion>
   <Accordion title="OpenAI Code subscription (OAuth)">
     Browser flow; paste `code#state`.
@@ -178,7 +180,8 @@ What you set:
     More detail: [Cloudflare AI Gateway](/providers/cloudflare-ai-gateway).
   </Accordion>
   <Accordion title="MiniMax">
-    Config is auto-written. Hosted default is `MiniMax-M2.7`.
+    Config is auto-written. Hosted default is `MiniMax-M2.7`; API-key setup uses
+    `minimax/...`, and OAuth setup uses `minimax-portal/...`.
     More detail: [MiniMax](/providers/minimax).
   </Accordion>
   <Accordion title="StepFun">
