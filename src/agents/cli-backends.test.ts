@@ -3,7 +3,7 @@ import type { OpenClawConfig } from "../config/config.js";
 import type { CliBackendConfig } from "../config/types.js";
 import { createEmptyPluginRegistry } from "../plugins/registry.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
-import { resolveCliBackendConfig } from "./cli-backends.js";
+import { normalizeClaudeBackendConfig, resolveCliBackendConfig } from "./cli-backends.js";
 
 function createBackendEntry(params: {
   pluginId: string;
@@ -51,24 +51,7 @@ beforeEach(() => {
         output: "jsonl",
         input: "stdin",
       },
-      normalizeConfig: (config) => {
-        const normalizeArgs = (args: string[] | undefined) => {
-          if (!args) {
-            return args;
-          }
-          const next = args.filter((arg) => arg !== "--dangerously-skip-permissions");
-          const hasPermissionMode = next.some(
-            (arg, index) =>
-              arg === "--permission-mode" || next[index - 1]?.startsWith("--permission-mode="),
-          );
-          return hasPermissionMode ? next : [...next, "--permission-mode", "bypassPermissions"];
-        };
-        return {
-          ...config,
-          args: normalizeArgs(config.args),
-          resumeArgs: normalizeArgs(config.resumeArgs),
-        };
-      },
+      normalizeConfig: normalizeClaudeBackendConfig,
     }),
     createBackendEntry({
       pluginId: "openai",
