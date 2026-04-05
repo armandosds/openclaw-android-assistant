@@ -15,7 +15,6 @@ Docs: https://docs.openclaw.ai
 - Matrix/exec approvals: add Matrix-native exec approval prompts with account-scoped approvers, channel-or-DM delivery, and room-thread aware resolution handling. (#58635) Thanks @gumadeiras.
 - Providers/StepFun: add the bundled StepFun provider plugin with standard and Step Plan endpoints, China/global onboarding choices, `step-3.5-flash` on both catalogs, and `step-3.5-flash-2603` currently exposed on Step Plan. (#60032) Thanks @hengm3467.
 - Providers/Fireworks: add a bundled Fireworks AI provider plugin with `FIREWORKS_API_KEY` onboarding, Fire Pass Kimi defaults, and dynamic Fireworks model-id support.
-- Providers/config: add `models.providers.*.request` overrides for headers and auth on model-provider paths, and full request transport overrides for media provider HTTP paths.
 - MiniMax/TTS: add a bundled MiniMax speech provider backed by the T2A v2 API so speech synthesis can run through MiniMax-native voices and auth. (#55921) Thanks @duncanita.
 - Control UI/skills: add ClawHub search, detail, and install flows directly in the Skills panel. (#60134) Thanks @samzong.
 - Providers/Ollama: add a bundled Ollama Web Search provider for key-free `web_search` via your configured Ollama host and `ollama signin`. (#59318) Thanks @BruceMacD.
@@ -24,16 +23,13 @@ Docs: https://docs.openclaw.ai
 - Providers/Anthropic: remove setup-token from new onboarding and auth-command setup paths, keep existing configured legacy token profiles runnable, and steer new Anthropic setup to Claude CLI or API keys.
 - Providers/OpenAI Codex: add forward-compat `openai-codex/gpt-5.4-mini` synthesis across provider runtime, model catalog, and model listing so Codex mini works before bundled Pi catalog updates land.
 - Tools/web_search: add a bundled MiniMax Search provider backed by the Coding Plan search API, with region reuse from `MINIMAX_API_HOST` and plugin-owned credential config. (#54648) Thanks @fengmk2.
-- Channels/context visibility: add configurable `contextVisibility` per channel (`all`, `allowlist`, `allowlist_quote`) so quoted, threaded, and fetched history context can be filtered by sender allowlists instead of always passing through as received.
 - Providers/request overrides: add shared model and media request transport overrides across OpenAI-, Anthropic-, Google-, and compatible provider paths, including headers, auth, proxy, and TLS controls. (#60200)
-- Matrix/exec approvals: add Matrix-native exec approval prompts with account-scoped approvers, channel-or-DM delivery, and room-thread aware resolution handling. (#58635) Thanks @gumadeiras.
 - Agents/Claude CLI: expose OpenClaw tools to background Claude CLI runs through a loopback MCP bridge that reuses gateway tool policy, honors session/account/channel scoping, and only advertises the bridge when the local runtime is actually live. (#35676) Thanks @mylukin.
 - Agents/Claude CLI: switch bundled Claude CLI runs to stdin + `stream-json` partial-message streaming so prompts stop riding argv, long replies show live progress, and final session/usage metadata still land cleanly.
 - Prompt caching: keep prompt prefixes more reusable across transport fallback, deterministic MCP tool ordering, compaction, and embedded image history so follow-up turns hit cache more reliably. (#58036, #58037, #58038, #59054, #60603, #60691) Thanks @bcherny.
 - Agents/cache: diagnostics: add prompt-cache break diagnostics, trace live cache scenarios through embedded runner paths, and show cache reuse explicitly in `openclaw status --verbose`. Thanks @vincentkoc.
 - Agents/cache: stabilize cache-relevant system prompt fingerprints by normalizing equivalent structured prompt whitespace, line endings, hook-added system context, and runtime capability ordering so semantically unchanged prompts reuse KV/cache more reliably. Thanks @vincentkoc.
 - Config/schema: enrich the exported `openclaw config schema` JSON Schema with field titles and descriptions so editors, agents, and other schema consumers receive the same config help metadata. (#60067) Thanks @solavrc.
-- Providers/StepFun: add the bundled StepFun provider plugin with standard and Step Plan endpoints, China/global onboarding choices, `step-3.5-flash` on both catalogs, and `step-3.5-flash-2603` currently exposed on Step Plan. (#60032) Thanks @hengm3467.
 
 ### Fixes
 
@@ -68,6 +64,7 @@ Docs: https://docs.openclaw.ai
 - MS Teams: download inline DM images via Graph API and preserve channel reply threading in proactive fallback. (#52212, #55198)
 - Agents/Claude CLI: persist explicit `openclaw agent --session-id` runs under a stable session key so follow-ups can reuse the stored CLI binding and resume the same underlying Claude session.
 - Agents/CLI backends: invalidate stored CLI session reuse when local CLI login state or the selected auth profile credential changes, so relogin and token rotation stop resuming stale sessions.
+- Agents/Anthropic: preserve native `toolu_*` replay ids on direct Anthropic and Anthropic Vertex paths so cache-sensitive history stops rewriting known-valid Anthropic tool-use ids. (#52612)
 - Gateway/macOS: recover installed-but-unloaded LaunchAgents during `openclaw gateway start` and `restart`, while still preferring live unmanaged gateways during restart recovery. (#43766) Thanks @HenryC-3.
 - Auth/failover: persist selected fallback overrides before retrying, shorten `auth_permanent` lockouts, and refresh websocket/shared-auth sessions only when real auth changes occur so retries and secret rotations behave predictably. (#60404, #60323, #60387)
 - Cron: replay interrupted recurring jobs on the first gateway restart instead of waiting for a second restart. (#60583) Thanks @joelnishanth.
@@ -97,6 +94,7 @@ Docs: https://docs.openclaw.ai
 - Status/cache: restore `cacheRead` and `cacheWrite` in transcript fallback so `/status` keeps showing cache hit percentages when session logs are the only complete usage source. (#59247) Thanks @stuartsy.
 - Exec approvals/node host: forward prepared `system.run` approval plans on the async node invoke path so mutable script operands keep their approval-time binding and drift revalidation instead of dropping back to unbound execution.
 - Synology Chat/security: default low-level HTTPS helper TLS verification to on so helper/API defaults match the shipped safe account default, and only explicit `allowInsecureSsl: true` opts out.
+- Gateway/macOS: re-bootstrap the LaunchAgent if `launchctl kickstart -k` unloads it during restart so failed restarts do not leave the gateway unmanaged until manual repair.
 - Android/canvas security: require exact normalized A2UI URL matches before forwarding canvas bridge actions, rejecting query mismatches and descendant paths while still allowing fragment-only A2UI navigation.
 - Cron: send failure notifications through the job's primary delivery channel using the same session context as successful delivery when no explicit `failureDestination` is configured. (#60622) Thanks @artwalker.
 - Mobile pairing/bootstrap: keep QR bootstrap handoff tokens bounded to the mobile-safe contract so node handoff stays unscoped and operator handoff drops mixed `node.*`, `operator.admin`, and `operator.pairing` scopes.
@@ -131,6 +129,12 @@ Docs: https://docs.openclaw.ai
 - Plugins/onboarding: write dotted plugin uiHint paths like Brave `webSearch.mode` as nested plugin config so `llm-context` setup stops failing validation. (#61159) Thanks @obviyus.
 - Android/Talk Mode: restore voice replies on gateway-backed talk mode sessions by updating embedded runner transport overrides to the current agent transport API. (#61214) Thanks @obviyus.
 - Amazon Bedrock/aws-sdk auth: stop injecting the fake `AWS_PROFILE` apiKey marker when no AWS auth env vars exist, so instance-role and other default-chain setups keep working without poisoning provider config. (#61194) Thanks @wirjo.
+- Providers/Google: add model-level `cacheRetention` support for direct Gemini system prompts by creating, reusing, and refreshing `cachedContents` automatically on Google AI Studio runs. (#51372) Thanks @rafaelmariano-glitch.
+- Windows/restart: fall back to the installed Startup-entry launcher when the scheduled task was never registered, so `/restart` can relaunch the gateway on Windows setups where `schtasks` install fell back during onboarding. (#58943) Thanks @imechZhangLY.
+- Exec/heartbeat: use the canonical `exec-event` wake reason for `notifyOnExit` so background exec completions still trigger follow-up turns when `HEARTBEAT.md` is empty or comments-only. (#41479) Thanks @rstar327.
+- Heartbeat: skip wake delivery when the target session lane is already busy so the pending event is retried instead of getting drained too early. (#40526) Thanks @lucky7323.
+- Plugin SDK/context engines: export the missing context-engine result and subagent lifecycle types from `openclaw/plugin-sdk` so context engine plugins can type `ContextEngine` implementations without local workarounds. (#61251) Thanks @DaevMithran.
+- Agents/errors: surface an explicit disk-full message when local session or transcript writes fail with `ENOSPC`/`disk full`, so those runs stop degrading into opaque `NO_REPLY`-style failures. Thanks @vincentkoc.
 
 ## 2026.4.2
 
