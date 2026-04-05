@@ -21,8 +21,8 @@ jobs:
 
       - name: Sync upstream into main
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --global user.name 'friuns2'
+          git config --global user.email 'soulkey4@gmail.com'
 
           git remote add upstream https://github.com/openclaw/openclaw.git
           git fetch upstream
@@ -191,8 +191,8 @@ jobs:
           print(f"Updated docs/index.html with {name} ({date_str})")
           PYEOF
 
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --global user.name 'friuns2'
+          git config --global user.email 'soulkey4@gmail.com'
 
           git add docs/index.html
           if git diff --cached --quiet; then
