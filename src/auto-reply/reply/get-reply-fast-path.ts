@@ -1,10 +1,13 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { normalizeChatType } from "../../channels/chat-type.js";
+import { normalizeAnyChannelId } from "../../channels/registry.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { applyMergePatch } from "../../config/merge-patch.js";
 import type { SessionEntry } from "../../config/sessions/types.js";
+import { normalizeCommandBody } from "../commands-registry.js";
 import type { MsgContext, TemplateContext } from "../templating.js";
+import type { CommandContext } from "./commands-types.js";
 import { stripMentions, stripStructuralPrefixes } from "./mentions.js";
 import type { SessionInitResult } from "./session.js";
 
@@ -13,6 +16,12 @@ const COMPLETE_REPLY_CONFIG_SYMBOL = Symbol.for("openclaw.reply.complete-config"
 type ReplyConfigWithMarker = OpenClawConfig & {
   [COMPLETE_REPLY_CONFIG_SYMBOL]?: true;
 };
+
+function isSlowReplyTestAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (
+    env.OPENCLAW_ALLOW_SLOW_REPLY_TESTS === "1" || env.OPENCLAW_STRICT_FAST_REPLY_CONFIG === "0"
+  );
+}
 
 function resolveFastSessionKey(ctx: MsgContext): string {
   const existing = ctx.SessionKey?.trim();
@@ -33,6 +42,10 @@ export function markCompleteReplyConfig<T extends OpenClawConfig>(config: T): T 
   return config;
 }
 
+export function withFastReplyConfig<T extends OpenClawConfig>(config: T): T {
+  return markCompleteReplyConfig(config);
+}
+
 export function isCompleteReplyConfig(config: unknown): config is OpenClawConfig {
   return Boolean(
     config &&
@@ -50,6 +63,11 @@ export function resolveGetReplyConfig(params: {
   if (configOverride == null) {
     return params.loadConfig();
   }
+  if (params.isFastTestEnv && !isCompleteReplyConfig(configOverride) && !isSlowReplyTestAllowed()) {
+    throw new Error(
+      "Fast reply tests must pass with withFastReplyConfig()/markCompleteReplyConfig(); set OPENCLAW_ALLOW_SLOW_REPLY_TESTS=1 to opt out.",
+    );
+  }
   if (params.isFastTestEnv && isCompleteReplyConfig(configOverride)) {
     return configOverride;
   }
@@ -61,6 +79,72 @@ export function shouldUseReplyFastTestBootstrap(params: {
   configOverride?: OpenClawConfig;
 }): boolean {
   return params.isFastTestEnv && isCompleteReplyConfig(params.configOverride);
+}
+
+export function shouldUseReplyFastTestRuntime(params: {
+  cfg: OpenClawConfig;
+  isFastTestEnv: boolean;
+}): boolean {
+  return params.isFastTestEnv && isCompleteReplyConfig(params.cfg);
+}
+
+export function shouldUseReplyFastDirectiveExecution(params: {
+  isFastTestBootstrap: boolean;
+  isGroup: boolean;
+  isHeartbeat: boolean;
+  resetTriggered: boolean;
+  triggerBodyNormalized: string;
+}): boolean {
+  if (
+    !params.isFastTestBootstrap ||
+    params.isGroup ||
+    params.isHeartbeat ||
+    params.resetTriggered
+  ) {
+    return false;
+  }
+  return !params.triggerBodyNormalized.includes("/");
+}
+
+export function buildFastReplyCommandContext(params: {
+  ctx: MsgContext;
+  cfg: OpenClawConfig;
+  agentId?: string;
+  sessionKey?: string;
+  isGroup: boolean;
+  triggerBodyNormalized: string;
+  commandAuthorized: boolean;
+}): CommandContext {
+  const { ctx, cfg, agentId, sessionKey, isGroup, triggerBodyNormalized, commandAuthorized } =
+    params;
+  const surface = (ctx.Surface ?? ctx.Provider ?? "").trim().toLowerCase();
+  const channel = (ctx.Provider ?? surface).trim().toLowerCase();
+  const from = ctx.From?.trim() || undefined;
+  const to = ctx.To?.trim() || undefined;
+  return {
+    surface,
+    channel,
+    channelId: normalizeAnyChannelId(channel) ?? normalizeAnyChannelId(surface) ?? undefined,
+    ownerList: [],
+    senderIsOwner: false,
+    isAuthorizedSender: commandAuthorized,
+    senderId: from,
+    abortKey: sessionKey ?? from ?? to,
+    rawBodyNormalized: triggerBodyNormalized,
+    commandBodyNormalized: normalizeCommandBody(
+      isGroup ? stripMentions(triggerBodyNormalized, ctx, cfg, agentId) : triggerBodyNormalized,
+      { botUsername: ctx.BotUsername },
+    ),
+    from,
+    to,
+  };
+}
+
+export function shouldHandleFastReplyTextCommands(params: {
+  cfg: OpenClawConfig;
+  commandSource?: string;
+}): boolean {
+  return params.commandSource === "native" || params.cfg.commands?.text !== false;
 }
 
 export function initFastReplySessionState(params: {
