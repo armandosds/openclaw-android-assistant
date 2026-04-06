@@ -1,6 +1,6 @@
 {
   "name": "openclaw",
-  "version": "2026.4.5",
+  "version": "2026.4.6-beta.1",
   "description": "Multi-channel AI gateway with extensible messaging integrations",
   "keywords": [],
   "homepage": "https://github.com/openclaw/openclaw#readme",
@@ -546,6 +546,10 @@
     "./plugin-sdk/googlechat-runtime-shared": {
       "types": "./dist/plugin-sdk/googlechat-runtime-shared.d.ts",
       "default": "./dist/plugin-sdk/googlechat-runtime-shared.js"
+    },
+    "./plugin-sdk/media-generation-runtime-shared": {
+      "types": "./dist/plugin-sdk/media-generation-runtime-shared.d.ts",
+      "default": "./dist/plugin-sdk/media-generation-runtime-shared.js"
     },
     "./plugin-sdk/image-generation": {
       "types": "./dist/plugin-sdk/image-generation.d.ts",
