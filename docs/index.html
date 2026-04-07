@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AnyClaw — AI Agents on Android</title>
-<meta name="description" content="OpenClaw + Codex CLI in a single Android APK. Two AI agents, one app, your pocket. No root. No Termux." />
-<meta property="og:title" content="AnyClaw" />
-<meta property="og:description" content="OpenClaw + Codex running natively on Android. One APK, zero dependencies." />
+<title>AnyClaw — OpenClaw + Codex + Claude Code on Android</title>
+<meta name="description" content="OpenClaw + Codex CLI + Claude Code (via Claw Code / OpenClaude) in a single Android APK. Three AI agents, one app, your pocket. No root. No Termux." />
+<meta property="og:title" content="AnyClaw — Claude Code on Android" />
+<meta property="og:description" content="OpenClaw + Codex + Claude Code running natively on Android. Three agents, one APK, zero dependencies." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://friuns2.github.io/openclaw-android-assistant/" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦞</text></svg>" />
@@ -525,14 +525,15 @@
 <div class="hero">
   <div class="hero-claw fade-in d1">🦞</div>
   <h1 class="fade-in d2">Any<em>Claw</em></h1>
-  <p class="hero-sub fade-in d3">OpenClaw + Codex &middot; Android</p>
+  <p class="hero-sub fade-in d3">OpenClaw + Codex + Claude Code &middot; Android</p>
   <p class="hero-desc fade-in d4">
-    Two AI coding agents in <strong>one APK</strong>. Full Linux environment,
-    Node.js runtime, native Rust binary &mdash; all on your phone.
-    <strong>No root. No Termux.</strong>
+    Three AI coding agents in <strong>one APK</strong>. OpenClaw gateway, Codex CLI,
+    and <strong>Claude Code</strong> (via Claw Code / OpenClaude) &mdash; all running
+    in a full Linux environment on your phone. <strong>No root. No server. No PC.</strong>
   </p>
   <div class="cta-group fade-in d5">
     <a href="https://github.com/friuns2/openclaw-android-assistant/releases/latest/download/app-prod-release.apk" class="btn btn-primary">Download APK</a>
+    <a href="https://play.google.com/store/apps/details?id=gptos.intelligence.assistant&hl=en" class="btn btn-primary" style="background:var(--crimson)">Google Play</a>
     <a href="https://github.com/friuns2/openclaw-android-assistant" class="btn btn-ghost">GitHub</a>
     <a href="https://github.com/friuns2/openclaw-android-assistant#quick-start" class="btn btn-ghost">Quick Start</a>
   </div>
@@ -553,10 +554,11 @@
 <!-- ═══════════════ FEATURES ═══════════════ -->
 <div class="section">
   <p class="section-label">Capabilities</p>
-  <h2>Two agents, <em>one pocket</em></h2>
+  <h2>Three agents, <em>one pocket</em></h2>
   <p class="section-intro">
-    AnyClaw bundles OpenClaw (personal AI gateway with agents, skills &amp; Canvas)
-    and OpenAI Codex CLI (terminal coding agent) inside a self-contained Android app.
+    AnyClaw bundles OpenClaw (personal AI gateway), OpenAI Codex CLI (terminal coding agent),
+    and <strong>Claude Code</strong> (via Claw Code / OpenClaude &mdash; the leaked Claude Code architecture, 48K+ stars)
+    inside a self-contained Android app.
   </p>
 
   <div class="feat-grid">
@@ -572,13 +574,13 @@
     </div>
     <div class="feat">
       <span class="feat-icon">🦀</span>
-      <h3>Native Binary</h3>
-      <p>73MB Rust binary (aarch64-musl) running natively. Full <code style="color:var(--amber);font-family:var(--mono);font-size:.8rem">codex app-server</code> with JSON-RPC.</p>
+      <h3>Claude Code (OpenClaude)</h3>
+      <p>Full Claw Code agent &mdash; 19 tools, query engine, MCP integration, multi-agent swarms. Claude Code architecture on your phone.</p>
     </div>
     <div class="feat">
       <span class="feat-icon">🐧</span>
       <h3>Embedded Linux</h3>
-      <p>Complete Termux-derived userland &mdash; sh, apt, Node.js 24, npm, SSL certs. Extracted from APK.</p>
+      <p>Complete Termux-derived userland &mdash; sh, apt, Node.js 24, Python, SSL certs. Extracted from APK.</p>
     </div>
     <div class="feat">
       <span class="feat-icon">🔓</span>
@@ -620,6 +622,9 @@
 <span class="dim">│</span>  <span class="dim">│</span>  <span class="hl">openclaw gateway</span>  → :18789  (WebSocket)         <span class="dim">│</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="dim">│</span>  <span class="hl">openclaw ctrl UI</span>  → :19001  (Static files)      <span class="dim">│</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="dim">│</span>                                                  <span class="dim">│</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="dim">│</span>                                                  <span class="dim">│</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="dim">│</span>  <span class="grn">claw-code agent</span>   → Claude Code (OpenClaude)    <span class="dim">│</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="dim">│</span>                                                  <span class="dim">│</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="dim">│</span>  proxy.js          → :18924  (CONNECT, DNS/TLS)  <span class="dim">│</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="dim">└──────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
 <span class="dim">└────────────────────────────────────────────────────────┘</span>
@@ -651,6 +656,10 @@
     <div class="step">
       <h3>OpenClaw + koffi</h3>
       <p>Install OpenClaw globally. Build koffi FFI module from source with Termux toolchain.</p>
+    </div>
+    <div class="step">
+      <h3>Claw Code / OpenClaude</h3>
+      <p>Install Claude Code agent (Claw Code). 19 tools, query engine, MCP, multi-agent swarms.</p>
     </div>
     <div class="step">
       <h3>Codex CLI + Binary</h3>
@@ -706,6 +715,7 @@ bash scripts/build-server-bundle.sh && ./gradlew assembleDebug \
     <tbody>
       <tr><td>AI Gateway</td><td>OpenClaw</td><td>2026.2.21</td></tr>
       <tr><td>AI Agent</td><td>OpenAI Codex CLI</td><td>0.104.0</td></tr>
+      <tr><td>AI Agent</td><td>Claw Code / OpenClaude (Claude Code)</td><td>latest</td></tr>
       <tr><td>Model</td><td>gpt-5.3-codex (via Codex OAuth)</td><td>&mdash;</td></tr>
       <tr><td>Runtime</td><td>Node.js (Termux)</td><td>24.13.0</td></tr>
       <tr><td>Native</td><td>Rust (musl, aarch64)</td><td>&mdash;</td></tr>
@@ -803,12 +813,14 @@ bash scripts/build-server-bundle.sh && ./gradlew assembleDebug \
 
 <!-- ═══════════════ FOOTER ═══════════════ -->
 <footer>
-  <div class="tagline">Two agents. One APK. Your pocket.</div>
-  <div class="sub">Built by shoving an entire Linux distro into an APK and refusing to give up.</div>
+  <div class="tagline">Three agents. One APK. Your pocket.</div>
+  <div class="sub">They leaked Claude Code. We put it on a phone.</div>
   <div class="links">
     <a href="https://github.com/friuns2/openclaw-android-assistant">GitHub</a>
     <a href="https://github.com/friuns2/openclaw-android-assistant/releases/latest/download/app-prod-release.apk">Download</a>
+    <a href="https://play.google.com/store/apps/details?id=gptos.intelligence.assistant&hl=en">Google Play</a>
     <a href="https://openclaw.ai">OpenClaw</a>
+    <a href="https://claw-code.codes">Claw Code</a>
     <a href="https://github.com/openai/codex">Codex CLI</a>
   </div>
 </footer>
