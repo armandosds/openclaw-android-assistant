@@ -14,6 +14,7 @@ afterEach(() => {
   }
   vi.resetModules();
   vi.doUnmock("jiti");
+  vi.unstubAllEnvs();
 });
 
 describe("loadBundledEntryExportSync", () => {
@@ -85,49 +86,38 @@ describe("loadBundledEntryExportSync", () => {
     }
   });
 
-  it("falls back from src setup and secret specifiers to packaged public artifacts", () => {
+  it("can disable source-tree fallback for dist bundled entry checks", () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-channel-entry-contract-"));
     tempDirs.push(tempRoot);
 
+    fs.writeFileSync(path.join(tempRoot, "package.json"), '{"name":"openclaw"}\n', "utf8");
     const pluginRoot = path.join(tempRoot, "dist", "extensions", "telegram");
+    const sourceRoot = path.join(tempRoot, "extensions", "telegram", "src");
     fs.mkdirSync(pluginRoot, { recursive: true });
+    fs.mkdirSync(sourceRoot, { recursive: true });
 
-    const importerPath = path.join(pluginRoot, "setup-entry.js");
-    const channelPluginApiPath = path.join(pluginRoot, "channel-plugin-api.js");
-    const secretContractApiPath = path.join(pluginRoot, "secret-contract-api.js");
+    const importerPath = path.join(pluginRoot, "index.js");
     fs.writeFileSync(importerPath, "export default {};\n", "utf8");
     fs.writeFileSync(
-      channelPluginApiPath,
-      "export const telegramSetupPlugin = { id: 'telegram-setup' };\n",
-      "utf8",
-    );
-    fs.writeFileSync(
-      secretContractApiPath,
-      [
-        "export const secretTargetRegistryEntries = ['botToken'];",
-        "export function collectRuntimeConfigAssignments() { return undefined; }",
-      ].join("\n"),
+      path.join(sourceRoot, "secret-contract.ts"),
+      "export const sentinel = 42;\n",
       "utf8",
     );
 
     expect(
-      loadBundledEntryExportSync<{ id: string }>(pathToFileURL(importerPath).href, {
-        specifier: "./src/channel.setup.js",
-        exportName: "telegramSetupPlugin",
-      }),
-    ).toEqual({ id: "telegram-setup" });
-
-    expect(
-      loadBundledEntryExportSync<{
-        secretTargetRegistryEntries: string[];
-        collectRuntimeConfigAssignments: () => undefined;
-      }>(pathToFileURL(importerPath).href, {
+      loadBundledEntryExportSync<number>(pathToFileURL(importerPath).href, {
         specifier: "./src/secret-contract.js",
-        exportName: "channelSecrets",
+        exportName: "sentinel",
       }),
-    ).toMatchObject({
-      secretTargetRegistryEntries: ["botToken"],
-      collectRuntimeConfigAssignments: expect.any(Function),
-    });
+    ).toBe(42);
+
+    vi.stubEnv("OPENCLAW_DISABLE_BUNDLED_ENTRY_SOURCE_FALLBACK", "1");
+
+    expect(() =>
+      loadBundledEntryExportSync<number>(pathToFileURL(importerPath).href, {
+        specifier: "./src/secret-contract.js",
+        exportName: "sentinel",
+      }),
+    ).toThrow(`resolved "${path.join(pluginRoot, "src", "secret-contract.js")}"`);
   });
 });
