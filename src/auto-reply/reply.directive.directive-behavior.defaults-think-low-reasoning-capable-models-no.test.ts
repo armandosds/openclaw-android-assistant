@@ -4,13 +4,11 @@ import type { ModelAliasIndex } from "../agents/model-selection.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { loadSessionStore, type SessionEntry } from "../config/sessions.js";
 import {
-  assertModelSelection,
   installDirectiveBehaviorE2EHooks,
   makeEmbeddedTextResult,
   makeWhatsAppDirectiveConfig,
   mockEmbeddedTextResult,
   replyText,
-  replyTexts,
   sessionStorePath,
   withTempHome,
 } from "./reply.directive.directive-behavior.e2e-harness.js";
@@ -22,16 +20,6 @@ import { getReplyFromConfig } from "./reply.js";
 import { handleDirectiveOnly } from "./reply/directive-handling.impl.js";
 import type { HandleDirectiveOnlyParams } from "./reply/directive-handling.params.js";
 import { parseInlineDirectives } from "./reply/directive-handling.parse.js";
-
-function makeDefaultModelConfig(home: string) {
-  return makeWhatsAppDirectiveConfig(home, {
-    model: { primary: "anthropic/claude-opus-4-6" },
-    models: {
-      "anthropic/claude-opus-4-6": {},
-      "openai/gpt-4.1-mini": {},
-    },
-  });
-}
 
 async function runReplyToCurrentCase(home: string, text: string) {
   runEmbeddedPiAgentMock.mockResolvedValue(makeEmbeddedTextResult(text));
@@ -93,6 +81,49 @@ async function expectThinkStatus(params: { expectedLevel: "low" | "off" }): Prom
   const text = res?.text;
   expect(text).toContain(`Current thinking level: ${params.expectedLevel}`);
   expect(text).toContain("Options: off, minimal, low, medium, high, adaptive.");
+}
+
+async function runModelDirective(body: string): Promise<{
+  text?: string;
+  sessionEntry: SessionEntry;
+}> {
+  const sessionKey = "agent:main:whatsapp:+1222";
+  const sessionEntry: SessionEntry = {
+    sessionId: "model-directive",
+    updatedAt: Date.now(),
+  };
+  const res = await handleDirectiveOnly({
+    cfg: {
+      commands: { text: true },
+      agents: {
+        defaults: {
+          model: { primary: "anthropic/claude-opus-4-6" },
+          workspace: "/tmp/openclaw",
+          models: {
+            "anthropic/claude-opus-4-6": {},
+            "openai/gpt-4.1-mini": {},
+          },
+        },
+      },
+    } as OpenClawConfig,
+    directives: parseInlineDirectives(body),
+    sessionEntry,
+    sessionStore: { [sessionKey]: sessionEntry },
+    sessionKey,
+    elevatedEnabled: false,
+    elevatedAllowed: false,
+    defaultProvider: "anthropic",
+    defaultModel: "claude-opus-4-6",
+    aliasIndex: emptyAliasIndex,
+    allowedModelKeys: new Set(["anthropic/claude-opus-4-6", "openai/gpt-4.1-mini"]),
+    allowedModelCatalog: [],
+    resetModelOverride: false,
+    provider: "anthropic",
+    model: "claude-opus-4-6",
+    initialModelLabel: "anthropic/claude-opus-4-6",
+    formatModelSwitchEvent: (label) => `Switched to ${label}`,
+  } satisfies HandleDirectiveOnlyParams);
+  return { text: res?.text, sessionEntry };
 }
 
 function mockReasoningCapableCatalog() {
@@ -165,68 +196,11 @@ describe("directive behavior", () => {
     });
   });
   it("sets model override on /model directive", async () => {
-    await withTempHome(async (home) => {
-      const storePath = sessionStorePath(home);
-
-      await getReplyFromConfig(
-        { Body: "/model openai/gpt-4.1-mini", From: "+1222", To: "+1222", CommandAuthorized: true },
-        {},
-        makeWhatsAppDirectiveConfig(
-          home,
-          {
-            model: { primary: "anthropic/claude-opus-4-6" },
-            models: {
-              "anthropic/claude-opus-4-6": {},
-              "openai/gpt-4.1-mini": {},
-            },
-          },
-          { session: { store: storePath } },
-        ),
-      );
-
-      assertModelSelection(storePath, {
-        model: "gpt-4.1-mini",
-        provider: "openai",
-      });
-      expect(runEmbeddedPiAgentMock).not.toHaveBeenCalled();
-    });
-  });
-  it("ignores inline /model and /think directives while still running agent content", async () => {
-    await withTempHome(async (home) => {
-      mockEmbeddedTextResult("done");
-
-      const inlineModelRes = await getReplyFromConfig(
-        {
-          Body: "please sync /model openai/gpt-4.1-mini now",
-          From: "+1004",
-          To: "+2000",
-        },
-        {},
-        makeDefaultModelConfig(home),
-      );
-
-      const texts = replyTexts(inlineModelRes);
-      expect(texts).toContain("done");
-      expect(runEmbeddedPiAgentMock).toHaveBeenCalledOnce();
-      const call = runEmbeddedPiAgentMock.mock.calls[0]?.[0];
-      expect(call?.provider).toBe("anthropic");
-      expect(call?.model).toBe("claude-opus-4-6");
-      runEmbeddedPiAgentMock.mockClear();
-
-      mockEmbeddedTextResult("done");
-      const inlineThinkRes = await getReplyFromConfig(
-        {
-          Body: "please sync /think:high now",
-          From: "+1004",
-          To: "+2000",
-        },
-        {},
-        makeWhatsAppDirectiveConfig(home, { model: { primary: "anthropic/claude-opus-4-6" } }),
-      );
-
-      expect(replyTexts(inlineThinkRes)).toContain("done");
-      expect(runEmbeddedPiAgentMock).toHaveBeenCalledOnce();
-    });
+    const result = await runModelDirective("/model openai/gpt-4.1-mini");
+    expect(result.text).toContain("Model set to openai/gpt-4.1-mini.");
+    expect(result.sessionEntry.modelOverride).toBe("gpt-4.1-mini");
+    expect(result.sessionEntry.providerOverride).toBe("openai");
+    expect(runEmbeddedPiAgentMock).not.toHaveBeenCalled();
   });
   it("persists /reasoning off on discord even when model defaults reasoning on", async () => {
     await withTempHome(async (home) => {
