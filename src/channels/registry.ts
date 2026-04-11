@@ -15,6 +15,7 @@ import {
   type ChatChannelId,
 } from "./ids.js";
 import type { ChannelId, ChannelMeta } from "./plugins/types.public.js";
+export { getChatChannelMeta, listChatChannels } from "./chat-meta.js";
 export { CHANNEL_IDS, CHAT_CHANNEL_ORDER } from "./ids.js";
 export type { ChatChannelId } from "./ids.js";
 

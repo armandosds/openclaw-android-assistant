@@ -1,26 +1,8 @@
+import type { PluginRegistry } from "./registry-types.js";
+
 export const PLUGIN_REGISTRY_STATE = Symbol.for("openclaw.pluginRegistryState");
 
-export type RuntimeTrackedPluginRecord = {
-  id: string;
-  status?: string;
-  format?: string;
-};
-
-export type RuntimeTrackedChannelEntry = {
-  plugin: {
-    id?: string | null;
-    meta?: {
-      aliases?: string[];
-      markdownCapable?: boolean;
-    } | null;
-  };
-};
-
-export type RuntimeTrackedPluginRegistry = {
-  plugins: RuntimeTrackedPluginRecord[];
-  httpRoutes?: unknown[];
-  channels?: RuntimeTrackedChannelEntry[];
-};
+export type RuntimeTrackedPluginRegistry = PluginRegistry;
 
 export type RegistrySurfaceState = {
   registry: RuntimeTrackedPluginRegistry | null;
