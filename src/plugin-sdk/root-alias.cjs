@@ -7,6 +7,7 @@ let monolithicSdk = null;
 let diagnosticEventsModule = null;
 const jitiLoaders = new Map();
 const pluginSdkSubpathsCache = new Map();
+const pluginSdkPackageNames = ["openclaw/plugin-sdk", "@openclaw/plugin-sdk"];
 const isDistRootAlias = __filename.includes(
   `${path.sep}dist${path.sep}plugin-sdk${path.sep}root-alias.cjs`,
 );
@@ -89,7 +90,9 @@ function getPackageRoot() {
 function findDistChunkByPrefix(prefix) {
   const distRoot = path.join(getPackageRoot(), "dist");
   try {
-    const entries = fs.readdirSync(distRoot, { withFileTypes: true });
+    const entries = fs
+      .readdirSync(distRoot, { withFileTypes: true })
+      .toSorted((left, right) => left.name.localeCompare(right.name));
     const match = entries.find(
       (entry) =>
         entry.isFile() && entry.name.startsWith(`${prefix}-`) && entry.name.endsWith(".js"),
@@ -112,7 +115,9 @@ function listPluginSdkExportedSubpaths() {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
     subpaths = Object.keys(packageJson.exports ?? {})
       .filter((key) => key.startsWith("./plugin-sdk/"))
-      .map((key) => key.slice("./plugin-sdk/".length));
+      .map((key) => key.slice("./plugin-sdk/".length))
+      .filter((subpath) => /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(subpath))
+      .toSorted();
   } catch {
     subpaths = [];
   }
@@ -127,14 +132,16 @@ function buildPluginSdkAliasMap(useDist) {
   const ext = useDist ? ".js" : ".ts";
   const normalizeTarget = (target) =>
     process.platform === "win32" ? target.replace(/\\/g, "/") : target;
-  const aliasMap = {
-    "openclaw/plugin-sdk": normalizeTarget(__filename),
-  };
+  const aliasMap = Object.fromEntries(
+    pluginSdkPackageNames.map((packageName) => [packageName, normalizeTarget(__filename)]),
+  );
 
   for (const subpath of listPluginSdkExportedSubpaths()) {
     const candidate = path.join(pluginSdkDir, `${subpath}${ext}`);
     if (fs.existsSync(candidate)) {
-      aliasMap[`openclaw/plugin-sdk/${subpath}`] = normalizeTarget(candidate);
+      for (const packageName of pluginSdkPackageNames) {
+        aliasMap[`${packageName}/${subpath}`] = normalizeTarget(candidate);
+      }
     }
   }
 

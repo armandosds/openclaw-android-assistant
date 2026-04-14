@@ -26,6 +26,7 @@ function loadRootAliasWithStubs(options?: {
   env?: Record<string, string | undefined>;
   monolithicExports?: Record<string | symbol, unknown>;
   aliasPath?: string;
+  packageExports?: Record<string, unknown>;
   platform?: string;
 }) {
   let createJitiCalls = 0;
@@ -63,6 +64,7 @@ function loadRootAliasWithStubs(options?: {
           JSON.stringify({
             exports: {
               "./plugin-sdk/group-access": { default: "./dist/plugin-sdk/group-access.js" },
+              ...options?.packageExports,
             },
           }),
         existsSync: (targetPath: string) => {
@@ -253,6 +255,56 @@ describe("plugin-sdk root alias", () => {
     );
   });
 
+  it("builds scoped and unscoped plugin-sdk aliases for jiti loads", () => {
+    const lazyModule = loadRootAliasWithStubs({
+      distExists: true,
+      monolithicExports: {
+        slowHelper: (): string => "loaded",
+      },
+    });
+
+    expect((lazyModule.moduleExports.slowHelper as () => string)()).toBe("loaded");
+    expect(lazyModule.createJitiOptions.at(-1)?.alias).toMatchObject({
+      "openclaw/plugin-sdk": rootAliasPath,
+      "@openclaw/plugin-sdk": rootAliasPath,
+      "openclaw/plugin-sdk/group-access": expect.stringContaining(
+        path.join("src", "plugin-sdk", "group-access.ts"),
+      ),
+      "@openclaw/plugin-sdk/group-access": expect.stringContaining(
+        path.join("src", "plugin-sdk", "group-access.ts"),
+      ),
+    });
+  });
+
+  it("keeps bootstrap plugin-sdk aliases deterministic and ignores unsafe subpaths", () => {
+    const lazyModule = loadRootAliasWithStubs({
+      distExists: true,
+      packageExports: {
+        "./plugin-sdk/zeta": { default: "./dist/plugin-sdk/zeta.js" },
+        "./plugin-sdk/../escape": { default: "./dist/plugin-sdk/escape.js" },
+        "./plugin-sdk/alpha": { default: "./dist/plugin-sdk/alpha.js" },
+      },
+      monolithicExports: {
+        slowHelper: (): string => "loaded",
+      },
+    });
+
+    expect((lazyModule.moduleExports.slowHelper as () => string)()).toBe("loaded");
+    const aliasKeys = Object.keys(
+      (lazyModule.createJitiOptions.at(-1)?.alias ?? {}) as Record<string, string>,
+    );
+    expect(aliasKeys).toEqual([
+      "openclaw/plugin-sdk",
+      "@openclaw/plugin-sdk",
+      "openclaw/plugin-sdk/alpha",
+      "@openclaw/plugin-sdk/alpha",
+      "openclaw/plugin-sdk/group-access",
+      "@openclaw/plugin-sdk/group-access",
+      "openclaw/plugin-sdk/zeta",
+      "@openclaw/plugin-sdk/zeta",
+    ]);
+  });
+
   it("prefers hashed dist diagnostic events chunks before falling back to src", () => {
     const packageRoot = createPackageRoot();
     const distAliasPath = createDistAliasPath();
@@ -276,6 +328,32 @@ describe("plugin-sdk root alias", () => {
     );
     expect(lazyModule.loadedSpecifiers).not.toContain(
       path.join(packageRoot, "src", "infra", "diagnostic-events.ts"),
+    );
+  });
+
+  it("chooses hashed dist diagnostic events chunks deterministically", () => {
+    const packageRoot = createPackageRoot();
+    const distAliasPath = createDistAliasPath();
+    const lazyModule = loadRootAliasWithStubs({
+      aliasPath: distAliasPath,
+      distExists: false,
+      distEntries: ["diagnostic-events-zeta.js", "diagnostic-events-alpha.js"],
+      monolithicExports: {
+        r: (): (() => void) => () => undefined,
+        slowHelper: (): string => "loaded",
+      },
+    });
+
+    expect(
+      typeof (lazyModule.moduleExports.onDiagnosticEvent as (listener: () => void) => () => void)(
+        () => undefined,
+      ),
+    ).toBe("function");
+    expect(lazyModule.loadedSpecifiers).toContain(
+      path.join(packageRoot, "dist", "diagnostic-events-alpha.js"),
+    );
+    expect(lazyModule.loadedSpecifiers).not.toContain(
+      path.join(packageRoot, "dist", "diagnostic-events-zeta.js"),
     );
   });
 
